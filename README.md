@@ -14,6 +14,7 @@ This project, developed by 0neand0nly (JohnJang), aims to assess how effectively
   - `shutil`
   - `langchain_community`
   - `langchain_core`
+  - `Ollama`
 
 ## Setup
 1. **Clone the Repository**:
