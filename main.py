@@ -1,3 +1,10 @@
+'''
+This project is developed by 0neand0nly (JohnJang).
+The main goal for this project is to observe how well the local llm can identify potential vulnerabilities that are related to top 10 CWE of CVEs
+You can run two kinds of local llm which is the llama3:70b-instruct and llama3 via Ollama.
+In order to run models it requires about 4 X 3090 GPU or 2 X 3090.
+
+'''
 import json
 import os
 import subprocess
@@ -6,11 +13,7 @@ import shutil
 
 
 from langchain_community.llms import Ollama
-from langchain_community.chat_models import ChatOllama
 from langchain_core.output_parsers import StrOutputParser
-from langchain.agents import AgentExecutor, initialize_agent, AgentType, Tool, create_react_agent
-from langchain.schema import HumanMessage, SystemMessage
-
 from langchain.prompts import (
     ChatPromptTemplate, 
     MessagesPlaceholder,
@@ -20,28 +23,45 @@ from langchain.prompts import (
 )
 
 model_id = "llama3:70b-instruct"
+# model_id = "llama3"
 
 def setup_llm():
-    # local_llm = ChatOpenAI(
-    #     api_key="ollama",
-    #     model=model_id,
-    #     base_url="http://localhost:11434/v1",
-    #     temperature=0
-    # )
     
-    local_llm = ChatOllama(model=model_id, temperature=0)
-    
+    local_llm = Ollama(model=model_id, temperature=0)
     os.environ["LANGCHAIN_TRACING_V2"]="true"
     os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
     os.environ["LANGCHAIN_API_KEY"]="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"
     os.environ["LANGCHAIN_PROJECT"]="web_sec_final"
     #https://www.getastra.com/blog/security-audit/top-vulnerabilities/
+    
+    
+   
+    
+    
     PREFIX = """
     You are going to be vulnerability detector.
     
     See if the user provided code contains any top 10 CWE(Common Weakness Enumeration) or CVE(Common Vulnerabilities and Exposure) related issues.
     
-    If you observe vulnerabilities please point out the most suspicious one and state the reason
+    """
+   
+
+    system_message_prompt = SystemMessagePromptTemplate.from_template(PREFIX)
+    
+    chat_prompt = ChatPromptTemplate.from_messages([
+        system_message_prompt,
+        ("user", "{user_input}")
+    ])
+    
+    chain = chat_prompt | local_llm | StrOutputParser()
+    
+    return local_llm, chain
+
+def query_llm(local_llm, chain, code_snippet):
+    SUFFIX="""
+    See if the user provided code contains any top 10 CWE(Common Weakness Enumeration) or CVE(Common Vulnerabilities and Exposure) related issues.
+    
+    If you observe vulnerabilities please point out the most suspicious CWE of CVE number and state the reason
     
     If you cannot find any vulnerabilities or security concerns just say "Vulnerability Not found" no need to explain further
     
@@ -71,32 +91,9 @@ def setup_llm():
     8	CWE-843	Access of Resource Using Incompatible Type ('Type Confusion')	
     9	CWE-22	Improper Limitation of a Pathname to a Restricted Directory ('Path Traversal')	
     10	CWE-306	Missing Authentication for Critical Function
-    
     """
-    REQ ="""
     
-    You are going to be vulnerability detector.
-    
-    See if the user provided code has as CWE or CVE related vulnerabilities.
-    
-    If you observe vulnerabilities please point out the most suspicious one and state the reason
-    
-    If you cannot find any vulnerabilities or security concerns just say "Vulnerability Not found" no need to explain further
-    """
-    system_message_prompt = SystemMessagePromptTemplate.from_template(PREFIX)
-    
-    chat_prompt = ChatPromptTemplate.from_messages([
-        system_message_prompt,
-        ("user", "{user_input}")
-    ])
-    
-    chain = chat_prompt | local_llm | StrOutputParser()
-    
-    return local_llm, chain
-
-def query_llm(local_llm, chain, code_snippet):
-    
-    response = chain.invoke({"user_input": f"{code_snippet}",})
+    response = chain.invoke({"user_input": f"{code_snippet} \n {SUFFIX}"})
     print(response)
     
     return response
@@ -106,7 +103,7 @@ def save_response(full_path,response,project_name):
     relative_path = full_path.replace(f"./data/{project_name}/", "")
     text_file_name=relative_path.replace(".java",".txt").replace("/","_")
     
-    response_dir = "./response"
+    response_dir = f"./response/{project_name}"
     response_path=os.path.join(response_dir,text_file_name)
     
     
@@ -179,9 +176,11 @@ def gather_files(commit_file_dict, project_name):
             else:
                 print(f"File {full_file_path} does not exist.")
 
-def read_file_query_gpt(commit_file_dict, project_name,local_llm, chain):
+def read_file_query_gpt(commit_file_dict, project_name, local_llm, chain):
     data_dir_path = f"./data/{project_name}"
-    
+    i = 1
+    total_files_count = sum(len(files) for files in commit_file_dict.values())
+    print(total_files_count)
     for hash_val, files in commit_file_dict.items():
         for file in files:
             file_name = file.split("/")[-1]
@@ -191,18 +190,83 @@ def read_file_query_gpt(commit_file_dict, project_name,local_llm, chain):
                 if os.path.getsize(full_path) <= 70 * 1024:
                     with open(full_path, "r") as java_file:
                         code_snippet = java_file.read()
-                    print("Quering: "+full_path)
-                    response=query_llm(local_llm, chain,code_snippet)
-                    save_response(full_path,response,project_name)
-                    
-                    return  # 첫 번째 파일을 읽고 함수 종료
+                    print("Querying: " + full_path)
+                    response = query_llm(local_llm, chain, code_snippet)
+                    save_response(full_path, response, project_name)
+                    print(f"Progress : {i} / {total_files_count} ")
+                    i += 1
                 else:
-                   print(f"File {full_path} exceeds the size limit.")
-                return  # 파일이 존재하지 않아도 함수 종료 
+                    print(f"File {full_path} exceeds the size limit.")
             else:
                 print(f"File {full_path} does not exist.")
-                return  # 파일이 존재하지 않아도 함수 종료
+
+def filter_response(project_name):
+    response_dir = f"./response/{project_name}"
+    vulnerable_files = []
+    ignore_phrases = [
+        "vulnerability not found",
+        "after analyzing the provided code, i did not find",
+        "after analyzing the provided java code, i did not find",
+        "please provide the code,",
+        "i'm ready to analyze the user-provided code. please provide the code, and i'll check it for any potential vulnerabilities related to the top 10 cwe or cve lists.",
+        "please paste the code, and i'll get started!"
+    ]
+
+    for root, dirs, files in os.walk(response_dir):
+        for file in files:
+            if file.endswith(".txt"):
+                file_path = os.path.join(root, file)
+                with open(file_path, "r") as f:
+                    content = f.read().lower()
+                    if not any(phrase in content for phrase in ignore_phrases):
+                        vulnerable_files.append(file_path)
+
+    total_responses = len([file for file in files if file.endswith(".txt")])
+    vul_response_dir = f"./response/vulnerable_responses/{project_name}"
+    os.makedirs(vul_response_dir, exist_ok=True)
+    counter = 0
+    total_vul_files = len(vulnerable_files)
     
+    print(f"Number of Vulnerable Responses: {total_vul_files} / {total_responses}")
+    
+    for vulnerable_file in vulnerable_files:
+        dest_path = os.path.join(vul_response_dir, os.path.basename(vulnerable_file))
+        shutil.copy(vulnerable_file, dest_path)
+        print(f"Copied {vulnerable_file} to {dest_path}")
+        counter += 1
+    print(f"Number of Files copied: {counter} / {total_vul_files}")
+        
+    return total_responses, total_vul_files
+
+def filter_unique_files(project_name):
+    vul_response_dir = f"./response/vulnerable_responses/{project_name}"
+    duplicate_dir = f"./response/vulnerable_responses/{project_name}/duplicated_files"
+    os.makedirs(duplicate_dir, exist_ok=True)  # 중복된 파일을 저장할 디렉토리를 생성합니다.
+
+    unique_file_names = []
+    duplicate_file_names = []
+    seen_file_names = set()
+
+    for root, dirs, files in os.walk(vul_response_dir):
+        for file in files:
+            file_name_part = file.split("_")[-1]
+            full_file_path = os.path.join(root, file)
+            if file_name_part in seen_file_names:
+                duplicate_file_names.append(file)
+                shutil.move(full_file_path, os.path.join(duplicate_dir, file))  # 중복된 파일을 이동합니다.
+            else:
+                unique_file_names.append(file_name_part)
+                seen_file_names.add(file_name_part)
+
+    print(f"Unique file names: {len(unique_file_names)}")
+    for file_name in unique_file_names:
+        print(file_name)
+
+    print(f"\nDuplicate file names: {len(duplicate_file_names)}")
+    for file_name in duplicate_file_names:
+        print(file_name)
+
+    return unique_file_names, duplicate_file_names
 
 
 if __name__ == '__main__':
@@ -212,12 +276,16 @@ if __name__ == '__main__':
     
     log_file_path = gather_commit_info(project_name)
     commit_file_dict = create_commit_file_dict(log_file_path)
-    #gather_files(commit_file_dict, project_name)
-    # 출력이나 다른 작업을 추가할 수 있습니다.
-    #print(json.dumps(commit_file_dict, indent=4))
+    gather_files(commit_file_dict, project_name)
+   
     local_llm, chain = setup_llm()
     read_file_query_gpt(commit_file_dict,project_name,local_llm, chain)
     
-    #query_llm(local_llm,chain)
+    total_responses,total_vul_files=vulnerable_files = filter_response(project_name)
+    unique_files, duplicate_files = filter_unique_files(project_name)
+    
+    print(f"Total number of suspicious files: {total_vul_files} / {total_responses}  rate: {(total_vul_files / total_responses) * 100:.2f} %")
+    print(f"Total number of suspicious unique files: {len(unique_files)} / {total_responses}  rate: {(len(unique_files) / total_responses) * 100:.2f} %")
+   
     
     

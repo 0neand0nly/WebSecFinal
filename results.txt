@@ -1,0 +1,11 @@
+Total number of suspicious files: 54 / 2340  rate: 2.31 %
+Total number of suspicious unique files: 34 / 2340  rate: 1.45 %
+Total number of true positive files 4 / 2340 rate: 0.17%
+
+list of true positive files:
+a89915da626d450df06af4078a4511b1a9732c52_UpdatableRow.txt
+c584a1e5ce1e361c37f063f6178ecd431545f753_Server.txt
+d2c2b322592bd66f7428d7b230fa7bab15e128de_FtpControl.txt
+d2c2b322592bd66f7428d7b230fa7bab15e128de_RemovePasswords.txt 
+
+
