@@ -48,12 +48,22 @@ python <script_name>.py <project_name>
 Replace <script_name> with the name of your Python script and <project_name> with the name of the project you want to analyze.
 
 Main Functions
-setup_llm(): Initializes the local LLM and sets up the environment.
-query_llm(local_llm, chain, code_snippet): Queries the LLM to check for vulnerabilities in the provided code snippet.
-save_response(full_path, response, project_name): Saves the LLM response to a file.
-gather_commit_info(project_name): Gathers commit information from the Git repository.
-create_commit_file_dict(log_file_path): Creates a dictionary mapping commits to files.
-gather_files(commit_file_dict, project_name): Gathers the relevant files from the specified commits.
-read_file_query_gpt(commit_file_dict, project_name, local_llm, chain): Reads files and queries the LLM for each file.
-filter_response(project_name): Filters the responses to identify vulnerable files.
-filter_unique_files(project_name): Filters out duplicate files to identify unique vulnerable files.
+
+- setup_llm(): Initializes the local LLM and sets up the environment.
+
+- query_llm(local_llm, chain, code_snippet): Queries the LLM to check for vulnerabilities in the provided code snippet.
+
+- save_response(full_path, response, project_name): Saves the LLM response to a file.
+
+- gather_commit_info(project_name): Gathers commit information from the Git repository.
+
+- create_commit_file_dict(log_file_path): Creates a dictionary mapping commits to files.
+
+- gather_files(commit_file_dict, project_name): Gathers the relevant files from the specified commits.
+
+- read_file_query_gpt(commit_file_dict, project_name, local_llm, chain): Reads files and queries the LLM for each file.
+
+- filter_response(project_name): Filters the responses to identify vulnerable files.
+
+- filter_unique_files(project_name): Filters out duplicate files to identify unique vulnerable files.
+
