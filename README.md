@@ -32,9 +32,12 @@ Ensure the following environment variables are set:
 bash
 
 export LANGCHAIN_TRACING_V2="true"
+
 export LANGCHAIN_ENDPOINT="https://api.smith.langchain.com"
+
 export LANGCHAIN_API_KEY="your_langchain_api_key"
-export LANGCHAIN_PROJECT="web_sec_final"
+
+
 Usage
 
 Running the Project
