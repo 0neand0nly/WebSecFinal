@@ -28,10 +28,7 @@ model_id = "llama3:70b-instruct"
 def setup_llm():
     
     local_llm = Ollama(model=model_id, temperature=0)
-    os.environ["LANGCHAIN_TRACING_V2"]="true"
-    os.environ["LANGCHAIN_ENDPOINT"]="https://api.smith.langchain.com"
-    os.environ["LANGCHAIN_API_KEY"]="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"
-    os.environ["LANGCHAIN_PROJECT"]="web_sec_final"
+    
     #https://www.getastra.com/blog/security-audit/top-vulnerabilities/
     
     
